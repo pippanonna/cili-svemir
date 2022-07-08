@@ -1,0 +1,106 @@
+ ORG 0
+        B MAIN
+
+ ORG 0x18
+        B CEKAJ
+
+ ORG 0x1C
+FIQ     LDR R8, RTC
+        
+        MOV R9, #0      ; inicijaliziraj sljedeci ciklus brojenja
+        STR R9, [R8, #0x08] ; obrisi status
+        STR R9, [R8, #0x10] ; onemoguci prekid RTC-u (control register)
+
+        MOV R8, #0x00FF0000     ; adresa DMAC
+        
+        MOV R9, #0x500          ; src address
+        STR R9, [R8, #0x10]
+
+        MOV R9, #0x700          ; dst address
+        STR R9, [R8, #0x14]
+
+        MOV R9, #0x000A          ; prvi - B=2^0=1, ostali - T=00A=10
+        STR R9, [R8, #0x18]
+
+        MOV R9, #0b10101100 ; 1-IE, 0-DRE, 10-word, 1-SI, 1-DI, 00-nije vazno
+        STR R9, [R8, #0x1C]
+
+        MOV R9, #1              ; pokretanje DMA
+        STR R9, [R8, #0]
+        
+        SUBS PC, LR, #4
+
+MAIN    
+STACKS  MSR CPSR, #0b11010010   ; IRQ
+        MOV R13, #0x10000       ; init stoga IRQ
+
+        MSR CPSR, #0b11010011   ; SVC
+        MOV R13, #0xFC00        ; init stoga SVC
+
+        MOV R7, #5      ; brojac
+
+RTC_I   LDR R0, RTC
+        
+        MOV R1, #3
+        STR R1, [R0, #0x04] ; konstanta u MR (match register)
+
+        MOV R1, #0
+        STR R1, [R0, #0x0C] ; pobrisati brojilo (load register)
+
+DMAC_I  MOV R1, #0x00FF0000     ; adresa DMAC
+        
+        MOV R0, #0x500          ; src address
+        STR R0, [R1, #0x10]
+
+        MOV R0, #0x700          ; dst address
+        STR R0, [R1, #0x14]
+
+        MOV R0, #0x000A          ; prvi - B=2^0=1, ostali - T=00A=10
+        STR R0, [R1, #0x18]
+
+        MOV R0, #0b10101100 ; 1-IE, 0-DRE, 10-word, 1-SI, 1-DI, 00-nije vazno
+        STR R0, [R1, #0x1C]
+
+        MOV R0, #1              ; pokretanje DMA
+        STR R0, [R1, #0]
+
+        MRS R0, CPSR            ; omogucavanje prekida IRQ i FIQ
+        BIC R0, R0, #0b11000000 ; brisanje bitova 7 i 6
+        MSR CPSR, R0
+
+POSAO   CMP R7, #0
+        BNE POSAO
+
+        SWI 0x123456
+
+
+RTC     DW 0xFFFF0E00
+FIN     DW 0x80808080
+
+CEKAJ   STMFD SP!, {R8, R9, R10, LR}
+        MOV R10, #0x00FF0000
+        STR R10, [R10, #0x4] ; prihvat prekida DMAC
+        
+        LDR R8, FIN
+        MOV R9, #0x700
+        STR R8, [R9, #0x28]
+
+
+        LDR R8, RTC     
+        
+        SUB R7, R7, #1
+        CMP R7, #0
+        BEQ KRAJ
+
+        MOV R9, #0      
+        STR R9, [R8, #0x08]     ; brisanje spremnosti u STAT/EOI
+        STR R9, [R8, #0x0C]     ; pobrisati brojilo (load register)
+
+        MOV R9, #1
+        STR R9, [R8, #0x10] ; dozvoli prekid RTC-u (control register)
+
+KRAJ    LDMFD SP!, {R8, R9, R10, LR}
+        SUBS PC, LR, #4
+
+ ORG 0x500
+        DW 1, 2, 3, 4, 5, 6, 7, 8, 9, 10

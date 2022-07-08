@@ -1,0 +1,131 @@
+        lui sp, %hi(0x1000)             ; init stacka
+        addi sp, sp, %lo(0x1000)
+
+init    lui s2, %hi(0xFFFF0F00)         ; init GPIO
+        addi s2, s2, %lo(0xFFFF0F00)
+
+        addi x6, x0, 0b10000000         ; smjer vrata A
+        sw x6, 8(s2)
+
+        addi x6, x0, 0x500              ; adresa podatka
+
+        lw a0, 0(x6)
+        jal ra, PRETVORI
+
+        halt
+
+PRETVORI
+        addi sp, sp, -20                ; spremi kontekst
+        sw ra, 0(sp)
+        sw a0, 4(sp)
+        sw a2, 8(sp)
+        sw a3, 12(sp)
+        sw a4, 16(sp)
+
+        addi a2, x0, 0xD                ; izbrisi sve na LCD
+        jal ra, lcdwr
+        
+B100    addi a3, x0, 100                ; provjera za 100
+        slt a4, a0, a3                  ; ako je broj manji od 100
+        bne a4, x0, B90                 ; skoci na sljedecu usporedbu
+        sub a0, a0, a3                  ; inace oduzmi 100 
+        addi a2, x0, 0x43               ; i ispisi znak za 100
+        jal ra, lcdwr
+
+B90     addi a3, x0, 90                 ; provjera za 90
+        slt a4, a0, a3
+        bne a4, x0, B50
+        sub a0, a0, a3
+        addi a2, x0, 0x58               ; 90 ima dva znaka XC
+        jal ra, lcdwr                   ; prvo se ispisuje X
+        addi a2, x0, 0x43               ; a onda C
+        jal ra, lcdwr
+
+B50     addi a3, x0, 50                 ; provjera za 50
+        slt a4, a0, a3
+        bne a4, x0, B40
+        sub a0, a0, a3
+        addi a2, x0, 0x4C
+        jal ra, lcdwr
+
+B40     addi a3, x0, 40                 ; provjera za 40
+        slt a4, a0, a3
+        bne a4, x0, B10
+        sub a0, a0, a3
+        addi a2, x0, 0x58               
+        jal ra, lcdwr
+        addi a2, x0, 0x4C               
+        jal ra, lcdwr
+
+B10     addi a3, x0, 10                 ; provjera za 10
+        slt a4, a0, a3
+        bne a4, x0, B9
+        sub a0, a0, a3
+        addi a2, x0, 0x58
+        jal ra, lcdwr  
+        beq a4, x0, B10                 ; 10 se moze pojavljivat vise puta
+                                        ; pa se uvjet provjerava dok nije manji od 10        
+
+B9      addi a3, x0, 9                  ; provjera za 9
+        slt a4, a0, a3
+        bne a4, x0, B5
+        sub a0, a0, a3
+        addi a2, x0, 0x49
+        jal ra, lcdwr
+        addi a2, x0, 0x58
+        jal ra, lcdwr
+
+B5      addi a3, x0, 5                  ; provjera za 5
+        slt a4, a0, a3
+        bne a4, x0, B4
+        sub a0, a0, a3
+        addi a2, x0, 0x56
+        jal ra, lcdwr
+
+B4      addi a3, x0, 4                  ; provjera za 4
+        slt a4, a0, a3
+        bne a4, x0, B1
+        sub a0, a0, a3
+        addi a2, x0, 0x49
+        jal ra, lcdwr
+        addi a2, x0, 0x56
+        jal ra, lcdwr
+
+B1      addi a3, x0, 1                  ; provjera za 1
+        slt a4, a0, a3
+        bne a4, x0, kraj
+        sub a0, a0, a3
+        addi a2, x0, 0x49
+        jal ra, lcdwr
+        beq a4, x0, B1
+        
+kraj    addi a2, x0, 0x0A               ; ispisi znakova na LCD ekran
+        jal ra, lcdwr
+               
+        lw ra, 0(sp)                    ; obnovi kontekst
+        lw a0, 4(sp)
+        lw a2, 8(sp)
+        lw a3, 12(sp)
+        lw a4, 16(sp)
+        addi sp, sp, 20
+
+        jalr x0, 0(ra)
+
+lcdwr   addi sp, sp, -4                 ; spremi kontekst
+        sw t0, 0(sp)
+        
+
+        andi t0, a2, 0x7F               ; postavi bit 7 u 0 i posalji znak
+        sw t0, 4(s2)
+        ori t0, a2, 0x80                ; postavi bit 7 u 1 (podigni impuls)
+        sw t0, 4(s2)
+        andi t0, a2, 0x7F               ; postavi bit 7 u 0 (spusti impuls)
+        sw t0, 4(s2)
+
+        lw t0, 0(sp)                    ; obnovi kontekst
+        addi sp, sp, 4
+
+        jalr x0, 0(ra)
+
+        org 0X500
+        dw 99

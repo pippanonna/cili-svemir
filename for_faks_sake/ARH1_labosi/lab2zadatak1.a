@@ -1,0 +1,86 @@
+ ORG 0
+        B MAIN
+
+ ORG 0x18
+        B IRQ
+
+
+MAIN
+STACKS  MSR CPSR, #0b11010010   ; IRQ stack
+        MOV R13, #0x10000
+
+        MSR CPSR, #0b11010011   ; SVC stack
+        MOV R13, #0xFC00
+
+GPIO_I  LDR R0, GPIO
+        MOV R1, #0b11100000 ; gornja tri su izlazna, a donja ulazna
+        STR R1, [R0, #0x08]
+
+        MOV R7, #1      ; R7 broji trenutno stanje - pocinje od 1
+        MOV R1, #0b00100000 ;zabranjen prolaz - crveno
+        STR R1, [R0, #0]
+        ADD R7, R7, #1  ; sad ide u 2
+
+RTC_I   LDR R3, RTC     ; dohvati adresu RTC
+
+        MOV R4, #5      ; MR = 5
+        STR R4, [R3, #0x04] ; upisati konstantu u MR
+
+        MOV R4, #0
+        STR R4, [R3, #0x0C] ; pobrisati brojilo
+
+        MOV R4, #1
+        STR R4, [R3, #0x10] ; dozvoli prekid RTCu (obavezno)
+
+IRQ_I   MRS R0, CPSR
+        BIC R0, R0, #0x80       ; dozvoli prekid za IRQ
+        MSR CPSR, R0
+
+CEKAJ   B CEKAJ
+
+        SWI 0x123456
+
+
+GPIO    DW 0xFFFF0B00
+RTC     DW 0xFFFF0E00
+
+IRQ     STMFD SP!, {R8 - R12}
+        LDR R8, RTC
+        LDR R9, GPIO
+
+REINIT  MOV R10, #0     ; reinicijalizacija RTCa
+        STR R10, [R8, #0x08] ; prihvat prekida RTCa
+        
+
+LOOP    CMP R7, #1
+        BEQ CRV         ; ako je R7 1, skoci na crveno
+        CMP R7, #2
+        BEQ CRV_ZUT     ; ako je R7 2, skoci na crveno i zuto
+        CMP R7, #3
+        BEQ ZEL         ; ako je R7 3, skoci na zeleno
+        CMP R7, #4
+        BEQ ZUT         ; ako je R7 4, skoci na zuto
+
+CRV     MOV R11, #0b00100000 ;zabranjen prolaz - crveno
+        STR R11, [R9, #0]
+        B BACK
+
+CRV_ZUT MOV R11, #0b01100000 ;priprema nakon zabrane prolaza - crveno i zuto
+        STR R11, [R9, #0]
+        B BACK
+
+ZEL     MOV R11, #0b10000000 ;slobodan prolaz - zeleno
+        STR R11, [R9, #0]
+        B BACK
+
+ZUT     MOV R11, #0b01000000 ;priprema za zabranu prolaza - zuto
+        STR R11, [R9, #0]
+
+BACK    CMP R7, #4
+        MOVEQ R7, #1           ; ako je 4, vrati na pocetno stanje 1
+        ADDNE R7, R7, #1      ; ako nije 4, uvecaj za 1
+
+        STR R10, [R8, #0x0C] ; pobrisi brojilo
+
+        LDMFD SP!, {R8 - R12}
+        SUBS PC, LR, #4

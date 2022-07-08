@@ -1,0 +1,97 @@
+        MOV R1, #0X500
+        MOV R5, #0X1000
+        LDR R6, KLJUC1
+        MOV R10, SP
+
+LOOP    LDR R2, [R1], #4
+        TEQ R2, R6
+        BEQ KRAJ
+
+        LDR R3, [R1], #4
+        LDR R4, [R1], #4
+
+        TEQ R2, #0
+        BEQ PLUS
+        TEQ R2, #1
+        BEQ MINUS
+        TEQ R2, #2
+        BEQ PUTA
+        TEQ R2, #3
+        BEQ MAIN
+        B KRAJ
+
+PLUS    ADD R0, R3, R4
+        B STORE
+
+MINUS   SUB R0, R3, R4
+        B STORE
+
+PUTA    MUL R0, R3, R4
+        B STORE
+
+MAIN    MOV SP, #0X2000
+        STMFD SP!, {R3, R4}
+
+        BL DIJELI
+        ADD SP, SP, #8
+        LDMFD SP, {R0}
+        B STORE
+
+STORE   STR R0, [R5], #4
+        B LOOP
+
+KRAJ    LDR R6, KLJUC2
+        STR R6, [R5], #4
+        SWI 0X123456
+
+
+ ORG 0X500
+BL_1    DW 3, 0XFFFFFEFF, 0X00000010
+BL_2    DW 1, 0X000001F4, 0XFFFFFD44
+BL_3    DW 2, 0XFFFFFFFE, 0X0000000A
+BL_4    DW 3, 0XFFFFF000, 0XFFFFFFC0, 0X80808080
+
+KLJUC1 DW 0X80808080
+KLJUC2 DW 0XFFFFFFFF
+DIJELI  STMFD SP!, {R5, R6, R7, R8}
+        
+        LDR R5, [SP, #16]
+        LDR R6, [SP, #20]
+        
+        CMP R6, #0
+        BNE KOM_1
+        MOV R7, #0
+        B KRAJ_D
+
+KOM_1   MOV R7, R5, LSR #31
+        AND R7, R7, #1
+        CMP R7, #0
+        BEQ KOM_2
+        MVN R5, R5
+        ADD R5, R5, #1
+
+KOM_2   MOV R8, R6, LSR #31
+        AND R8, R8, #1
+        CMP R8, #0
+        BEQ VAN
+        MVN R6, R6
+        ADD R6, R6, #1
+
+VAN     EOR R8, R8, R7
+        MOV R7, #0
+
+LOOP_D  CMP R5, R6
+        BMI KOM_3
+        SUB R5, R5, R6
+        ADD R7, R7, #1
+        B LOOP_D
+
+KOM_3   CMP R8, #0
+        BEQ KRAJ_D
+        MVN R7, R7
+        ADD R7, R7, #1
+
+KRAJ_D  STR R7, [SP, #24]
+        LDMFD SP!, {R5, R6, R7, R8}
+
+        MOV PC, LR
