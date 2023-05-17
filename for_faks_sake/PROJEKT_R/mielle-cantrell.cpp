@@ -12,6 +12,7 @@ using namespace std;
 
 #define BR_DIM 4
 #define VEL_POPULACIJE 100
+#define PRECIZNOST 100
 
 double randomX()
 {
@@ -57,8 +58,36 @@ double Individual::izracunajFitness()
     return fitness;
 };
 
-Individual Individual::mutacija(Individual roditelj2){
+Individual Individual::mutacija(Individual roditelj2)
+{
+    vector<double> kromosom_djeteta;
 
+    for (int i = 0; i < BR_DIM; i++)
+    {
+        float p = (rand() % (PRECIZNOST + 1)) / PRECIZNOST;
+        double aritmSred = (this->genotip[i] + roditelj2.genotip[i]) / 2;
+
+        if (p < 0.9)
+        {
+            kromosom_djeteta.push_back(aritmSred);
+        }
+        else
+        {
+            kromosom_djeteta.push_back(randomX());
+        }
+    }
+
+    return Individual(kromosom_djeteta);
+};
+
+void printGen(Individual jed)
+{
+    cout << "[";
+    for (int i = 0; i < jed.genotip.size(); i++)
+    {
+        cout << jed.genotip[i] << " ";
+    }
+    cout << "]";
 };
 
 bool operator<(const Individual &ind1, const Individual &ind2)
@@ -70,6 +99,7 @@ int main()
 {
     srand((unsigned)time(NULL));
 
+    int brGen = 0;
     vector<Individual> populacija;
     bool pronaden = 0;
 
@@ -87,5 +117,39 @@ int main()
             pronaden = 1;
             break;
         }
+
+        vector<Individual> novaGeneracija;
+
+        int udioStarih = (10 * VEL_POPULACIJE) / 100;
+        for (int i = 0; i < udioStarih; i++)
+        {
+            novaGeneracija.push_back(populacija[i]);
+        }
+
+        int udioNovih = VEL_POPULACIJE - udioStarih;
+        for (int i = 0; i < udioNovih; i++)
+        {
+            int r = rand() % (VEL_POPULACIJE / 2 + 1);
+            Individual roditelj1 = populacija[r];
+
+            r = rand() % (VEL_POPULACIJE / 2 + 1);
+            Individual roditelj2 = populacija[r];
+
+            novaGeneracija.push_back(roditelj1.mutacija(roditelj2));
+        }
+        populacija = novaGeneracija;
+        cout << "Generacija " << brGen << endl;
+        cout << "Najbolji primjerak: ";
+        printGen(populacija[0]);
+        cout << endl;
+        cout << "Fitess najboljeg: " << populacija[0].fitness << endl
+             << endl;
+
+        brGen++;
     }
+    cout << "Generacija " << brGen << endl;
+    cout << "Najbolji primjerak: ";
+    printGen(populacija[0]);
+    cout << endl;
+    cout << "Fitess najboljeg: " << populacija[0].fitness << endl;
 }
