@@ -37,7 +37,7 @@ public:
     ID3();
     ~ID3();
     void fit(string filename, int level);
-    string predict(string filename); // treba vracat nes
+    string predict(string filename);
     void printTree();
 
 };

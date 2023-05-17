@@ -75,18 +75,6 @@ ID3::~ID3() {
 void ID3::fit(string filename, int level) {
     readFile(filename, true);
 
-    /* for(int i = 0; i < header.size(); i++) {
-        cout << header[i] << "   ";
-    }
-    cout << endl << "--------------------------" << endl;
-
-    for(int i = 0; i < trainDataset.size(); i++) {
-        for (int j = 0; j < trainDataset[i].size(); j++) {
-            cout << trainDataset[i][j] << "   ";
-        }
-        cout << endl;
-    } */
-
     vector<int> X;
     for (int i = 0; i < header.size() - 1; i++) {
         X.push_back(i);
@@ -182,10 +170,7 @@ void ID3::readFile(string filename, bool isTrainData) {
 }
 
 shared_ptr<Node> ID3::algorithm(vector<int> subDataset, vector<int> parentDataset, vector<int> X, int level) {
-    /* for(int i = 0; i < X.size(); i++) {
-        cout << header[X[i]] << "   ";
-    } */
-    string v; // da/ne
+    string v;
     Node *n = new Node();
     if (subDataset.empty()) {
         v = mostCommonLabel(parentDataset, header.size() - 1); // v = argmax(Dparent, v)
@@ -199,25 +184,19 @@ shared_ptr<Node> ID3::algorithm(vector<int> subDataset, vector<int> parentDatase
         if (this->trainDataset[subDataset[i]].back().compare(v) != 0) isSame = false;
     }
     if (X.empty() || isSame || level == 0) {
-        /* cout << "------KRAJ svi su isti ------" << endl;
-        cout << "List=" << v << endl; */
         n->addNode(v, header.size() - 1, true);
         return shared_ptr<Node>(n);
     }
-    // cout << "Tu 2 " << X.size() << endl;
 
     // x <-- argmaxˇx€X(IG(D, x))
     unordered_map<string, vector<int>> values;
     double E = entropy(subDataset), IG = 0.0;
-    // cout << "E=" << E << endl;
     int x = 0;
-    for (int i = 0; i < X.size(); i++) { // idi po vrijeme, temp, vlaznost
-        // cout << header[X[i]] << endl;
+    for (int i = 0; i < X.size(); i++) {
         unordered_map<string, vector<int>> hash;
         double currIG = E;
         for (int j = 0; j < subDataset.size(); j++) {
-            // cout << this->trainDataset[subDataset[j]][X[i]] << " " << subDataset[j] << endl;
-            hash[this->trainDataset[subDataset[j]][X[i]]].push_back(subDataset[j]); // podijeli vrijeme po suncano, oblacno, kisno
+            hash[this->trainDataset[subDataset[j]][X[i]]].push_back(subDataset[j]);
         }
         for (int j = 0; j < trainDataset.size(); j++) {
             if (hash.count(trainDataset[j][X[i]]) == 0) {
@@ -225,20 +204,14 @@ shared_ptr<Node> ID3::algorithm(vector<int> subDataset, vector<int> parentDatase
             }
         }
         for (auto i : hash) {
-            //cout << i.first << ": E=" << entropy(i.second) << ", " << i.second.size() << "/" << subDataset.size() << endl;
-            currIG -= (i.second.size() * 1.0 / subDataset.size()) * entropy(i.second); // za suncano izracunaj entropiju i oduzmi od E
+            currIG -= (i.second.size() * 1.0 / subDataset.size()) * entropy(i.second);
         }
         if ((currIG == IG && header[X[i]].compare(header[x]) < 0) || (currIG > IG)) {
             x = X[i];
             IG = currIG;
             values = hash;
         }
-        // cout << "znacajka=" << header[X[i]] << ", IG=" << currIG << endl;
-
     }
-        // cout << "Odabrano:::: znacajka=" << header[x] << ", IG=" << IG << endl;
-
-    // cout << "x=" << x << ", IG=" << IG << endl;
 
 
     n->addNode(this->header[x], x, false);
@@ -250,8 +223,7 @@ shared_ptr<Node> ID3::algorithm(vector<int> subDataset, vector<int> parentDatase
         for (int i = 0; i < X.size(); i++) {
             if (X[i] != x) newX.push_back(X[i]);
         }
-        
-        // cout << "Node: " << val.first << endl;
+		
         shared_ptr<Node> t = this->algorithm(val.second, subDataset, newX, level);
         n->addChild(val.first, t);
     }
@@ -262,23 +234,18 @@ shared_ptr<Node> ID3::algorithm(vector<int> subDataset, vector<int> parentDatase
 string ID3::mostCommonLabel(vector<int> ds, int pos) {
     unordered_map<string, vector<int>> hash;
     for (int i = 0; i < ds.size(); i++) {
-        //cout << "Redak " << ds[i] << endl;
         hash[this->trainDataset[ds[i]][pos]].push_back(ds[i]);
     }
 
     int maxNum = 0;
     string mostCommon = "";
-
-    //cout << "~~~~~~~~~~" << hash.size() << endl;
     for (auto i : hash) {
-        // cout << i.first << " " << i.second.size() << endl;
         
         if ((maxNum == i.second.size() && mostCommonLabel(i.second, header.size() - 1).compare(mostCommonLabel(hash[mostCommon], header.size() - 1)) < 0) || maxNum < i.second.size()) {
             mostCommon = i.first;
             maxNum = i.second.size();
         }
     }
-    // cout << "~~~~~~~~~~" << endl;
 
     return mostCommon;
 }
@@ -291,12 +258,9 @@ double ID3::entropy(vector<int> ds) {
         hash[this->trainDataset[ds[i]].back()]++;
     }
     for (auto i : hash) {
-        //cout << i.first << " " << i.second << endl;
         double p = i.second * 1.0 / ds.size();
-        //cout << "p=" << p << endl;
         if (p > 0) entropy -= p * log2(p);
     }
-    // cout << entropy << endl;
     return entropy;
 }
 
