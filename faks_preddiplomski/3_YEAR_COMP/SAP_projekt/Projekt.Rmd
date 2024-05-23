@@ -1,0 +1,565 @@
+---
+title: "Analiza UFC borbi"
+author: "SAP MATER"
+output: 
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+require(formatR)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+
+```{r}
+# Potrebni paket i učitavanje dataseta
+library(dplyr)
+fights = read.csv("./total_fight_data.csv")
+fighters = read.csv("./fighter_details.csv")
+RBData = read.csv("./preprocessed_data.csv") # Data just about red and blue fighters
+```
+
+## Case study: *UFC borbe*
+
+Analiza sportskih dogadaja (utakmica, mečeva, borbi...) kao i performansi pojedinih sportaša zadire u pore svakog dijela sportske industrije (menadžment, trening, sponzorstvo, marketing i sportske prognoze). Iz tog razloga se već duži niz godina prikupljaju podatci Ultimate Fighting Championship (UFC) borbi.
+
+Prikupljeni podatci predstavljaju informacije o UFC borbama (i borcima koji su u njima sudjelovali) u razdoblju od 1993. - 2021. godine. Borbama su pridodane značajke poput trajanja u rundama, sudca borbe te datuma i lokacije održavanja, dok su borcima pridružene značajke kao što su visina, težine, dužina ruke ili stav borca. Dodatno je poznat i pobjednik svake borbe (i način pobjede). U nastavku se nalaze istraživača pitanja na koja će biti dani odgovori.
+
+# Općenita deskriptivna analiza
+
+Varijable podataka su sljedeće:
+
+```{r}
+names(fights)
+total_fight = left_join(fights, fighters, by = c("R_fighter" = "fighter_name"))
+total_fight <- total_fight %>% rename("R_Height" = "Height", "R_Weight" = "Weight", "R_Reach" = "Reach", "R_Stance" = "Stance", "R_DOB" = "DOB", "R_SLpM" = "SLpM", "R_Str_Acc" = "Str_Acc", "R_SApM" = "SApM", "R_Str_Def" = "Str_Def", "R_TD_Avg" = "TD_Avg", "R_TD_Acc" = "TD_Acc", "R_TD_Def" = "TD_Def", "R_Sub_Avg" = "Sub_Avg")
+total_fight = left_join(total_fight, fighters, by = c("B_fighter" = "fighter_name"))
+total_fight <- total_fight %>% rename("B_Height" = "Height", "B_Weight" = "Weight", "B_Reach" = "Reach", "B_Stance" = "Stance", "B_DOB" = "DOB", "B_SLpM" = "SLpM", "B_Str_Acc" = "Str_Acc", "B_SApM" = "SApM", "B_Str_Def" = "Str_Def", "B_TD_Avg" = "TD_Avg", "B_TD_Acc" = "TD_Acc", "B_TD_Def" = "TD_Def", "B_Sub_Avg" = "Sub_Avg")
+names(total_fight)
+```
+
+Neke od važnijih varijabli su winner (pobjednik borbe koji može biti R - red ili B - blue ovisno o kutu), win_by (način pobjede, može biti KO/TKO, medicinski TKO...), težinska kategorija boraca (heavyweight, strawweight, featherweight...), itd...
+
+Naizgled nam sve varijable daju korisne informacije i statistički su relevantne, stoga za sada neće biti uklonjena niti jedna varijabla.
+
+# Q-Q diagram za najvažnije varijable
+
+# Možda koji histogram za najvažnije podatke
+
+# Box plot za najvažnije podatke
+
+```{r}
+summary(total_fight)
+```
+
+Iz ovog je vidljivo da postoje outlieri koji će najvjerojatnije biti izbačeni u nekom trenutku analize (npr. B_total_time_fought.seconds gdje je minimalna vrijednost 7, iako relevantna, informacija je preveliki outlier ako ju usporedimo sa medijanom ili srednjom vrijednošću).
+
+```{r}
+sapply(fights, class)
+```
+
+Možemo vidjeti da je su podatci većinski sastavljeni od cijelih i decimalnih brojeva, te postoji nekoliko varijabli sa tekstualnim vrijednostima.
+
+Pretraživanje dataseta za nedostajuće podatke:
+
+```{r}
+# daje popis svih varijabli koje imaju NA u njima
+for (name in names(total_fight)) {
+  if (sum(is.na(total_fight[, name])) > 0) {
+    cat('Broj nedostajućih vrijednosti za varijablu ', name, ': ', sum(is.na(total_fight[, name])), '\n')
+  }
+}
+```
+
+Iz prethodnog je vidljivo da varijable R_Reach i B_Reach imaju nedostajućih podataka. Pošto su iste kasnije potrebne u testiranju, te ih stoga nećemo ukloniti, već će biti profiltrirane prije nego li će se koristiti za testiranje.
+
+```{r}
+# daje popis svih varijabli koje imaju stringove duljine 0 u njima
+for (name in names(total_fight)) {
+  if(!sum(is.na(total_fight[, name])) > 0) {
+    if (sum(nchar(total_fight[, name]) == 0) > 0) {
+      cat('Broj nedostajućih vrijednosti za varijablu ', name, ': ', sum(nchar(total_fight[, name]) == 0), '\n')
+    }
+  }
+}
+```
+
+Nadalje ispis iznad također pokazuje varijable sa nedostajućim podatcima, te kao i u prethodnom slučaju, ovi podatci će biti profiltrirani ovisno o potrebi.
+
+## Pitanje 1:
+
+### Možemo li očekivati završetak borbe nokautom ovisno o razlici u dužini ruku između boraca?
+
+#### Odabir metode
+
+Ovo pitanje možemo preformulirati kao: *Postoji li zavisnost između razlike u dužini ruku boraca i završetka borbe nokautom?*\
+Pa tako možemo postaviti i pitanje: *Postoji li nezavisnost između razlike u dužini ruku boraca i završetka borbe nokautom?*\
+Prema ovim pitanjima moglo bi se zaključiti da bi trebalo provesti test nezavisnosti, no ključna informacija je da obje varijable nisu kategorijeske - razlika duljine ruku između boraca je kvantitativna varijabla, dok je ishod borbe kategorijska varijabla. Iz tog razloga test nezavisnosti nije valjana opcija za dobivanje odgovora na ovo pitanje.
+
+Pošto test nezavisnosti nije dobra opcija, druga metoda kojom bi se moglo doći do odgovora na ovo pitanje je **analiza varijance**. Imajući samo jednu nezavisnu varijablu (razlika duljine ruku između boraca) riječ je o jednofaktorskoj analizi varijance.
+
+```{r}
+head(total_fight$B_Weight)
+total_fight$R_Reach = strtoi(substr(total_fight$R_Reach, 1, 2))
+total_fight$B_Reach = strtoi(substr(total_fight$B_Reach, 1, 2))
+head(total_fight$R_Reach)
+hist(total_fight$R_Reach)
+hist(total_fight$B_Reach)
+```
+
+## Uvod
+
+#### Filtriranje podataka
+
+Pošto smo već prije uočili da u ovim varijablama postoje objekti koji nemaju vrijednosti, prije nego li počnemo raditi s njima, podatci će prvo biti profiltrirani kako bi se nezadovoljavajući objekti uklonili:
+
+```{r}
+  arm_lengths <- select(total_fight, c("B_Reach", "R_Reach"))
+  arm_lengths <- arm_lengths[rowSums(is.na(arm_lengths)) == 0, ]
+  arm_lengths[0:20, ]
+  
+  # provjera za razliku duljine ruku
+  for (name in names(arm_lengths)) {
+    if (sum(is.na(arm_lengths[, name])) > 0) {
+      cat('Broj nedostajućih vrijednosti za varijablu ', name, ': ', sum(is.na(arm_lengths[, name])), '\n')
+    }
+  }
+  
+  win_methods <- select(total_fight, c("B_Reach", "R_Reach", "win_by"))
+  win_methods <- win_methods[rowSums(is.na(win_methods)) == 0, ]
+  win_methods <- select(win_methods, c("win_by"))
+  win_methods <- win_methods$win_by
+  win_methods[0:21]
+  
+  # provjera za razlog pobjede
+  for (name in names(win_methods)) {
+    if (sum(is.na(win_methods[, name])) > 0) {
+      cat('Broj nedostajućih vrijednosti za varijablu ', name, ': ', sum(is.na(win_methods[, name])), '\n')
+    }
+  }
+```
+
+Pošto nema ispisa možemo zaključiti da su svi nezadovoljavajući objekti uklonjeni.
+
+Sada možemo nastaviti raditi sa podatcima.
+
+### Pretpostavke
+
+Kod provođenja testa moramo provijeriti zadovoljavaju li naši podatci preduvjete potrebne za provođenje izabrane metode. Pošto smo za odgovor na ovo pitanje odlučili provesti jednofaktorsku analizu varijance, preduvjeti su sljedeći:
+
+#### Test se provodi na podatcima koji su slučajno izabrani iz populacije
+
+Koristi se pretpostavka da su podatci na kojima se provode testovi slučajno izabrani iz populacije
+
+#### Zavisna kvantitativna varijabla mora pratiti normalnu distribuciju
+
+Apsolutna razlika dužine ruku boraca (*B_Reach* - *R_Reach*) je u ovom slučaju zavisna kvantitativna varijabla, te ćemo provjeriti zadovoljava li pretpostavku:
+
+```{r}
+ arm_length_differences <- (arm_lengths$B_Reach - arm_lengths$R_Reach)
+ arm_length_differences[0:76]
+```
+
+Možemo uočiti da su razlike duljina ruku cijeli brojevi, što je pomalo neočekivano, no razlog tomu je što su početne vrijednosti bile u mjernoj jedinici *inch*, te će tako ostati do završnog rezultata kako bi se očuvala točnost podataka. Pošto je sada sve u redu, možemo početi sa ispitivanjem normalnosti ove varijable. Jedan od najlakših i najefikasnijih načina provjere normalnosti je histogram.
+
+```{r}
+hist(arm_length_differences, main='Arm length difference between fighters')
+```
+
+Iz histograma možemo zaključiti da su podatci relativno lijepo raspoređeni po normalnoj distribuciji. Kao još jedan dijagnostički alat, možemo napraviti i Q-Q plot.
+
+```{r}
+qqnorm(arm_length_differences)
+```
+
+Kao što možemo vidjeti, Q-Q plot također daje poprilično dobre indikacije da se radi o normalnoj distribuciji. Kao konačnu potvrdu naše pretpostavke, koristiti ćemo Lillieforsov test:
+
+```{r}
+require(nortest)
+lillie.test(arm_length_differences)
+lillie.test(sample(arm_length_differences, size = 100))
+```
+
+Prema rezultatima Lillieforsovog testa možemo zaključiti da podatci nisu normalno distribuirani, obrnuto od naše pretpostavke, no moramo uzeti u obzir da niti Lillieforsov test ne daje sigurnost u distribuciju podataka, pošto što je skup podataka veći, to je test osjetljiviji na normalnost istih podataka. Stoga ćemo se oslanjati na robusnost ANOVA-e na normalnost pri grupama iste veličine.
+
+#### Homogenost varijance u svim grupama (homoskedastičnost)
+
+Homogenost varijance kroz grupe inicijalno možemo provjeriti boxplotom:
+
+```{r}
+question_1_data <- data.frame(arm_length_differences, win_methods)
+# stvaranje dviju grupa u nezavisnoj kategorijskoj varijabli
+question_1_data$win_methods <- replace(question_1_data$win_methods, question_1_data$win_methods != "KO/TKO", "Other")
+# length(question_1_data$win_methods[question_1_data$win_methods == "KO/TKO"])
+# length(question_1_data$win_methods[question_1_data$win_methods != "KO/TKO"])
+# nasumično uzimanje uzorka kako bi se stvorile grupe iste veličine
+# za reproducibilnost
+set.seed(8919)
+other <- sample_n(tbl = question_1_data[question_1_data$win_methods != "KO/TKO", ], size = 1533) 
+KO <- question_1_data[question_1_data$win_methods == "KO/TKO", ]
+
+# grupe iste veličine
+question_1_data <- rbind(KO, other)
+
+question_1_data[0:10, ]
+boxplot(arm_length_differences ~ win_methods, data = question_1_data, las = 1)
+```
+
+Iz boxplota možemo zaključiti da varijanca gotovo ne odstupa ovisno o razlogu pobjede, stoga smatramo da je i ovaj preduvjet za provedbu analize varijance zadovoljen. Također, možemo vidjeti kako se srednje vrijednosti ovisno o vrijednosti kategorijske varijable skoro pa ne razlikuju, što nam govori da vjerojatno nećemo imati dovoljno dokaza za odbacivanje hipoteze H0 u korist hipoteze H1.
+
+Kao potvrdu o hipotezi za jednakost varijance napraviti ćemo Bartlettov test:
+
+```{r}
+# H0: varijance svih grupa su iste
+# H1: varijance barem dviju grupa su različite
+
+bartlett.test(question_1_data$arm_length_differences ~ question_1_data$win_methods)
+
+var((question_1_data$arm_length_differences[question_1_data$win_methods == "KO/TKO"]))
+var((question_1_data$arm_length_differences[question_1_data$win_methods != "KO/TKO"]))
+
+```
+
+U vidu dobivenih rezultata iz Bartlettovog testa ne možemo odbaciti hipotezu H0 u korist hipoteze H1 na razini signifikantnosti 0.05, drugim riječima - imamo indikacije da su varijance grupa jednake, te s time da je preduvjet homoskedastičnosti zadovoljen.
+
+Pošto su svi preduvjeti zadovoljeni, možemo početi sa provođenjem testiranje.
+
+## Testiranje
+
+Provodimo jednofaktorski ANOVA test:
+
+### Hipoteze
+
+#### Hipoteza H0: srednje vrijednosti obiju grupa su iste
+
+#### Hipoteza H1: srednje vrijednost grupa su različite
+
+```{r}
+# contrast_matrix <- matrix(nrow = 2, ncol = 9,
+#                           c(0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0,
+#                           1,1,1,1,1,-8,1,1,1,
+#                           0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0,
+#                           0,0,0,0,0,0,0,0,0))
+# colnames(contrast_matrix) <- c("Could Not Continue", "Decision - Majority", "Decision - Split", "Decision - Unanimous", "DQ", "KO/TKO", "Overturned", "Submission", "TKO - Doctor's Stoppage")
+contrast_matrix <- matrix(nrow = 2, ncol = 1, c(0, 1))
+colnames(contrast_matrix) <- c("KO/TKO")
+question_1_data$win_methods <- factor(question_1_data$win_methods)
+contrasts(question_1_data$win_methods) <- contrast_matrix
+contrasts(question_1_data$win_methods)
+
+result <- aov(question_1_data$arm_length_differences ~ question_1_data$win_methods)
+summary(result)
+
+model <- lm(question_1_data$arm_length_differences ~ question_1_data$win_methods)
+summary(model)
+
+anova(model)
+```
+
+### Zaključak
+
+U vidu dobivenih dokaza, ne možemo odbaciti hipotezu H0 u korist hipoteze H1 na razini signifikantnosti 0.05.
+
+Odgovor na početno pitanje bi glasio:\
+**"Ne, ne možemo očekivati završetak borbe nokautom ovisno o razlici duljine ruku boraca"**
+
+## Pitanje 2:
+
+### Razlikuje li se trajanje mečeva (u sekundama) izmedu pojedinih kategorija?
+
+Prije nego što možemo odgovoriti na to pitanje, trebamo izvući sve podatke iz dataseta u odgovarajućem formatu.
+```{r cleaning data}
+
+#adding total time fought in seconds
+library(stringr)
+last_round_vector = stringr::str_split_fixed(fights$last_round_time, pattern = ":", 2)
+
+fights <- cbind(fights, total_time_in_seconds = (fights$last_round - 1)*5*60)
+for(i in 1:length(fights$total_time_in_seconds)) {
+  fights$total_time_in_seconds[i] = fights$total_time_in_seconds[i] + strtoi(last_round_vector[i], base = 10L) * 60 + strtoi((last_round_vector[i,])[2], base = 10L)
+}
+#hist(fights$total_time_in_seconds)
+
+# dividing fights by categories
+
+beginFights <- fights %>% filter(grepl(paste("Women's|Strawweight|Flyweight|Bantamweight|Featherweight", "|Lightweight|Welterweight|Middleweight|Light Heavyweight|Heavyweight", sep = ""), Fight_type, ignore.case = TRUE))
+beginFights <- cbind(beginFights, categories = gsub(paste("UFC | Title| Bout|", " Tournament|[0-9] |Interim |Super |Ultimate Fighter |[0-9]|Australia |", "Brazil |Latin America |Ultimate Japan|vs. UK |UF Nations Canada vs. |T", sep = ""), "", beginFights$Fight_type))
+beginFights$categories <- trimws(beginFights$categories)
+
+#all categories
+validFights = beginFights
+validFights$categories = factor(validFights$categories, levels = c("Women's Strawweight", "Women's Flyweight", "Women's Bantamweight", "Women's Featherweight", "Flyweight", "Bantamweight", "Featherweight", "Lightweight", "Welterweight", "Middleweight", "Light Heavyweight", "Heavyweight"), labels = c('womensStrawweight', 'womensFlyweight', 'womensBantamweight', 'womensFeatherweight', 'Flyweight', 'Bantamweight', 'Featherweight', 'Lightweight', 'Welterweight', 'Middleweight', 'LightHeavyweight', 'Heavyweight'))
+```
+### Raspodjela podataka po kategorijama
+```{r summary of categories}
+summary(validFights$categories)
+```
+### Sažetak trajanja borbi u sekundama
+```{r summary of time fought}
+summary(validFights$total_time_in_seconds)
+```
+
+Možemo prikazati podatke u boxplotu i usporediti ih:
+```{r boxplot of time fought by categories}
+par(mar=c(10, 5, 1, 1))
+boxplot(validFights$total_time_in_seconds ~ validFights$categories, range = 1.5, ylab = "Total time in seconds", xlab="", las = 2)
+mtext("Weight categories", side=3)
+```
+
+Testiranje normalnosti ćemo provesti nad svim podacima, i podacima podijeljenim u grupe prema kategoriji.
+
+```{r histogram of time fought}
+hist(validFights$total_time_in_seconds)
+```
+
+```{r lilliefors test for time fought - all data}
+require(nortest)
+lillie.test(validFights$total_time_in_seconds)
+```
+
+Iz histograma svih podataka i Lillieforsovog testa nad tim podacima možemo zaključiti da podaci ne prate normalnu razdiobu, ali da budemo sigurni možemo testirati i svaki zasebnu grupu podataka. Radi sažetosti, ispitivali smo samo ako je p-vrijednost bilo koje grupe veća od $\alpha = 0.05$.
+
+```{r lilliefors test for time fought - data by categories}
+categoryLevels = levels(validFights$categories)
+normalnostGrupe = FALSE
+for(i in 1:length(categoryLevels)) {
+  pVrijednost = lillie.test(validFights$total_time_in_seconds[validFights$categories==categoryLevels[i]])$p.value
+  if (pVrijednost >= 0.05)
+    normalnostGrupe = TRUE
+}
+
+if(normalnostGrupe) {
+  print(noquote("Barem jedna grupa prati normalnu razdiobu."))
+} else {
+  print(noquote("Nijedna grupa ne prati normalnu razdiobu."))
+}
+```
+
+Homogenost varijanci različitih populacija ćemo testirati Levenovim testom, jer je manje osjetljiv na odstupanje od normalnosti nego Bartlettov test.
+```{r, echo=TRUE, results='hide', message=FALSE}
+library(car)
+```
+
+```{r levene test for time fought by categories}
+leveneTest(total_time_in_seconds ~ categories, validFights)
+```
+
+Podaci ne zadovoljavaju ni uvjet normalnosti ni homogenosti varijanci. Kad su veličine grupa podjednake, ANOVA je relativno robusna metoda na blaga odstupanja od pretpostavke normalnosti i homogenosti varijanci ANOVA je relativno robusna metoda na blaga odstupanja od pretpostavke normalnosti i homogenosti varijanci ako su veličine grupa podjednake pa možemo uezti uzorak iz svake grupe nad kojim ćemo testirati podatke. Iz podataka vidimo da je kategorija Women's Featherweight jedan red veličine manja od drugih grupa pa nju izbacujemo iz testiranja.
+
+```{r anova test for time fought by selected categories}
+adjustedValidFights <- beginFights %>% filter(!grepl("Women's Featherweight", Fight_type, ignore.case = TRUE))
+
+adjustedValidFights$categories = factor(adjustedValidFights$categories, levels = c("Women's Strawweight", "Women's Flyweight", "Women's Bantamweight", "Flyweight", "Bantamweight", "Featherweight", "Lightweight", "Welterweight", "Middleweight", "Light Heavyweight", "Heavyweight"), labels = c('womensStrawweight', 'womensFlyweight', 'womensBantamweight', 'Flyweight', 'Bantamweight', 'Featherweight', 'Lightweight', 'Welterweight', 'Middleweight', 'LightHeavyweight', 'Heavyweight'))
+
+adjustedValidFights <- adjustedValidFights %>% group_by(categories) %>% slice_sample(n=100)
+
+a = aov(adjustedValidFights$total_time_in_seconds ~ adjustedValidFights$categories)
+summary(a)
+```
+
+Možemo odbaciti H0 u korist H1, time zaključujemo da postoje barem dvije grupe kojima se trajanje mečeva razlikuje.
+
+#### Pitanje 3:
+
+##### Traju li (u rundama) borbe za titulu duže od ostalih borbi u natjecanju?
+
+Pošto test
+
+Radimo tablicu u kojoj je trajanje samo borbe za naslov prvaka kategorije. Takve borbe mogu trajati najviše 5 rundi.
+
+```{r}
+bouts = select(fights, c("Fight_type", "last_round"))
+#names(bouts)
+
+titleFights <- fights %>% filter(grepl("title", Fight_type, ignore.case = TRUE))
+#titleFights
+
+head(
+  select(titleFights, R_fighter, B_fighter, Fight_type, last_round, Winner)
+)
+
+titleFightDuration <- titleFights$last_round   #lista u koju spremamo trajanja svih title fightova
+```
+
+U ispisu vidimo da neki title fightovi nemaju pobjednika. Ako je borba završila u 5. rundi i nema pobjednika riječ je o Drawu, odnosno odluka sudaca je da su borci izjednačeni. Ako je borba završila prije 5. runde i nema pobjednika, što je iznimno rijetko, mora biti riječ o No Contestu, odnosno borba je prekinuta iz nekog razloga i nemoguće je odrediti pobjednika (npr. jednom je protivniku nanesen nenamjeran faul zbog kojeg ne može nastaviti borbu)
+
+Računamo varijancu trajanja borbi koje su za naslov prvaka kategorije.
+
+```{r}
+var(titleFightDuration)
+
+```
+
+Na isti način filtriramo samo borbe koje nisu za titulu šampiona. Te borbe uvijek traju najviše 3 runde, osim ako je riječ o borbi koja je main event. Tada borba može trajati do 5 rundi. Takvih je slučajeva jako malo u usporedbi s non-title borbama koje traju do 3 runde
+
+```{r}
+nonTitleFights <- fights %>% filter(!grepl("title", Fight_type, ignore.case = TRUE))
+#nonTitleFights
+
+head(
+  select(nonTitleFights, R_fighter, B_fighter, Fight_type, last_round, Winner)
+)
+
+nonTitleFightDuration <- nonTitleFights$last_round
+```
+
+Računamo varijancu trajanja borbi koje nisu za naslov prvaka kategorije.
+
+```{r}
+var(nonTitleFightDuration)
+
+```
+
+Vidimo da borbe koje nisu za titulu šampiona imaju puno manju varijancu, što je očekivano jer većina takvih borbi može trajati maksimalno 3 runde.
+
+Za početak radimo Q-Q plot trajanja borbi za naslov šampiona kako bismo ustvrdili radi li se o normalnoj distribuciji
+
+```{r}
+hTitleFights <- hist(titleFightDuration)
+hTitleFights
+hNonTitleFights <- hist(nonTitleFightDuration)
+hNonTitleFights
+
+qqnorm(titleFightDuration, pch=1, frame=FALSE, main="Q-Q graf za trajanje Title fightova")
+```
+
+Vidimo da graf nimalo ne upućuje da se su trajanja borbi za titulu normalno raspodjeljena. Napravimo isti test za borbe koje nisu za naslov šampiona.
+
+```{r}
+qqnorm(nonTitleFightDuration, pch=1, frame=FALSE, main="Q-Q graf za trajanje Non Title fightova")
+```
+
+Iz prethodnih grafova možemo zaključiti da trajanje niti jedne vrste borbi nema normalnu razdiobu. Pogledajmo sada kako izgledaju razdiobe na stupčastim dijagramima
+
+```{r}
+# TO DO:
+#dodaj bar plot sa razdiobom trajanja title fightsa  ->  koristi ggplot paket!!!
+length(titleFightDuration[titleFightDuration == 5])
+#dodaj bar plot sa razdiobom trajanja non title fightsa
+
+```
+
+Još jednom vidimo da ni u jednom slučaju nije riječ o normalnoj razdiobi. Još ćemo jednom prikazati iste podatke, ali sada prikazujemo postotak svih Title fightova i Non Title fightova koji su završili u nekoj rundi, a ne konkretan broj.
+
+```{r}
+hTitleFights$counts[hTitleFights$counts != 0]
+postotciZavrsetakaURundiTitle <- hTitleFights$counts[hTitleFights$counts != 0] / sum(hTitleFights$counts[hTitleFights$counts != 0])
+postotciZavrsetakaURundiTitle
+
+
+hNonTitleFights$counts[hNonTitleFights$counts != 0]
+postotciZavrsetakaURundiNormal <- hNonTitleFights$counts[hNonTitleFights$counts != 0] / sum(hNonTitleFights$counts[hNonTitleFights$counts != 0])
+postotciZavrsetakaURundiNormal
+
+
+df <- t(cbind(postotciZavrsetakaURundiTitle, postotciZavrsetakaURundiNormal))
+
+
+
+barplot(df, beside=TRUE, xlab="Runda završetka borbe", ylab="Postotak borbi koji je završio u toj rundi", col=c("gold", "black"))
+legend("topright",c("Title fights", "Non title fights"), fill=c("gold", "black"))
+```
+
+I opet smo se uvjerili da nije ni blizu riječ o normalnoj distribuciji.
+
+Dakle, koristimo Wilcoxon Rank-Sum Test jer je on za razliku od T-testa ne pretpostavlja normalnost.
+
+Ali pogledajmo svejedno kakav bi rezultat dobili da koristimo T-test.
+
+T-test H0: titleFightDuration = nonTitleFightDuration H1: titleFightDuration \> nonTitleFightDuration
+
+```{r}
+t.test(titleFightDuration, nonTitleFightDuration, alt="greater", var.equal=FALSE)
+
+```
+
+Iz T-testa bi odbacili početnu hipotezu H0 da borbe za titulu šampiona u prosjeku traju jednako kao obične borbe koje nisu za titulu šampiona jer je p-vrijednost jako jako mala.
+
+Pogledajmo sada što možemo zaključiti iz Wilcoxon Rank-Sum Testa.
+
+```{r}
+# napravi Wilcoxon Rank-Sum Test
+```
+
+# Pitati
+
+## Naslučujući da imamo podatke o cijeloj populaciji možemo napraviti Z-test pošto možemo izračunati varijancu i standardnu devijaciju, u
+
+## slučaju da nemamo pristup cijeloj populaciji, korisitit ćemo T-test za dvije populacije sa poznatim varijancama
+
+U oba slučaja moramo provijeriti normalnost distribucije varijabli sa histogramima i Q-Q plotovima. Vjerojatno će biti potrebno odstraniti\
+neke podatke pošto postoje ekstremi. Run a independency test to prove independence.
+
+## Pitanje 4:
+
+#### Mogu li dostupne značajke predvidjeti pobjednika?
+
+U ovom zadatku koristimo logističku regresiju jer nas zanima ako se određeni borac sam po svojim karakteristikama može svrstati u pobjetnika ili gubitnika. Kako je rezultat (zavisna varijabla) binaran, definirat ćemo ga kao Winner = 0/1;
+
+Nakon stvaranja modela sa svim atributima vezanih uz borca i njegova protivnika lako možemo razlučiti signifikantne i nesignifikantne regresore. Ako varijabla ima p-vrijednost veću od 0.05 ne smatramo je signifikantnom za predviđanje pobjednika.
+
+```{r analiza modela}
+#install.packages("caret")
+require(caret)
+# pretvaranje winner stringova "Blue" i "Red" tou bool vrijednosti kako bi se logisticka regresija mogla koristiti
+RBData$Winner[which(RBData$Winner=="Blue")] <- "1"
+RBData$Winner[which(RBData$Winner=="Red")] <- "0"
+RBData$Winner <- as.numeric(RBData$Winner)
+
+logreg.mdl = glm(formula = Winner ~ B_avg_KD + B_avg_opp_KD + B_avg_SIG_STR_pct + B_avg_opp_SIG_STR_pct + B_avg_TD_pct + B_avg_opp_TD_pct + B_avg_SUB_ATT + B_avg_opp_SUB_ATT + B_avg_REV + B_avg_opp_REV + B_avg_SIG_STR_att + B_avg_SIG_STR_landed + B_avg_opp_SIG_STR_att + B_avg_opp_SIG_STR_landed + B_avg_TOTAL_STR_att + B_avg_TOTAL_STR_landed + B_avg_opp_TOTAL_STR_att + B_avg_opp_TOTAL_STR_landed + B_avg_TD_att + B_avg_TD_landed + B_avg_opp_TD_att + B_avg_opp_TD_landed + B_avg_HEAD_att + B_avg_HEAD_landed + B_avg_opp_HEAD_att + B_avg_opp_HEAD_landed + B_avg_BODY_att + B_avg_BODY_landed + B_avg_opp_BODY_att + B_avg_opp_BODY_landed + B_avg_DISTANCE_att + B_avg_DISTANCE_landed + B_avg_opp_DISTANCE_att + B_avg_opp_DISTANCE_landed + B_avg_CLINCH_att + B_avg_CLINCH_landed + B_avg_opp_CLINCH_att + B_avg_opp_CLINCH_landed + B_total_rounds_fought + B_total_title_bouts + B_current_win_streak + B_current_lose_streak + B_longest_win_streak + B_wins + B_losses + B_Height_cms + R_Height_cms + B_Reach_cms + R_Reach_cms + B_avg_CONT_time_seconds + B_avg_opp_CONT_time_seconds + B_total_time_fought_seconds, data = RBData, family = binomial)
+
+summary(logreg.mdl)
+```
+
+## Usporedba modela
+
+Sa signifikantnijim regresorima napravit ćemo samnjeni model te testirati razliku njegove i devijance početnog modela. Ukoliko devijanca nije značajno veća prihvatit ćemo smanjeni model.
+
+```{r}
+logreg.mdl.2 = glm(Winner ~ B_avg_opp_TD_pct + B_avg_opp_SIG_STR_att + B_avg_opp_TOTAL_STR_att + B_avg_opp_TOTAL_STR_landed + B_total_title_bouts + B_Height_cms + B_Reach_cms
+                   + B_avg_opp_SIG_STR_landed + B_avg_opp_DISTANCE_att + R_Reach_cms + B_avg_TD_pct + B_avg_opp_SUB_ATT + B_avg_TD_att + B_avg_TD_landed + B_avg_opp_TD_landed
+                   + B_avg_HEAD_landed + B_avg_opp_DISTANCE_landed + B_avg_opp_CONT_time_seconds + B_avg_HEAD_att
+                   , data = RBData, family = binomial())
+
+summary(logreg.mdl.2)
+
+anova(logreg.mdl, logreg.mdl.2, test = "LRT")
+```
+
+Razlika u devijancama modela je značajna, tako da nećemo moći koristiti ovaj smanjeni model kao substituciju za primarni. (p - vrijednost = 0.001331)
+
+Izračunajmo matricu zabune za originalni model
+
+Stvarno/Opaženo (pobjeda) Y=0 Y=1 Y=0 TN FP Y=1 FN TP
+
+```{r}
+  
+yHat <- logreg.mdl$fitted.values > 0.5
+tab <- table(RBData$Winner, yHat)
+
+tab
+
+accuracy = sum(diag(tab)) / sum(tab)
+precision = tab[2,2] / sum(tab[,2])
+recall = tab[2,2] / sum(tab[2,])
+specificity = tab[1,1] / sum(tab[,1])
+
+print(paste0("Točnost: ", accuracy))          # Udio točno pretostavljenih pobjednika i gubitnika  (TP+TN)/(TP+FP+TN+FN)
+print(paste0("Preciznost: ", precision))      # Udio točno pretostavljenih pobjednika u onima koji su klasificirani kao pobjednici  TP/(TP+FP)
+print(paste0("Odziv: ", recall))              # Udio točno pretostavljenih pobjednika u skupu svih koji su stvarno pobjedili  TP/(TP+FN)
+print(paste0("Specifičnost: ", specificity))  # Udio točno pretostavljenih gubitnika u skupu svih koji su klasificirani kao gubitnici  TN/(TN+FP)
+```
+
+## Zaključak
+
+Po danim značajkama možemo u 68% slučajeva točno pretpostaviti pobjednika i gubitnika. U značajnom broju slučajeva borca koji je pobjedio proglašavamo gubitnikom.
+
+Možemo vidjeti da udio pravih pobjednika u skupu onih za koje smo pretpostavili da će pobjediti 53.5%, te time ne možemo sa sigurnošću zaključiti tko će pobjediti samo na osnovi danih podataka iz prijašnjih borba. Iako ove varijable mogu pripomoći predvidjeti pobjednika, to se predviđanje po danim podatcima borca ne može sa sigurnošću potvrditi.
