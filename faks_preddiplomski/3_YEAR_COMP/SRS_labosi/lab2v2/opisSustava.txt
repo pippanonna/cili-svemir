@@ -1,0 +1,15 @@
+Laboratorijska vježba se sastoji od četiri klase:
+Password
+UserBase
+usermgmt
+login
+
+Klasa Password sadrži kriptiranu lozinku, bool vrijednost koja označava je li korisnik mora promijeniti lozinku pri sljedećem loginu, salt i IV.
+
+Klasa UserBase sadrži HashMap korisničkih imena i pripadajućih klasa Password. Korisnička imena su ključevi, i oni su kriptirani zajedničkim saltom i IV. 
+
+Klasa usermgmt je alat koji služi za upravljanje loznikama i korisničkim imenima.
+
+Klasa login je alat koji služi za prijavu na sustav.
+
+Lozinke su kriptirane i napadač ne može u razumnom vremenu razbiti lozinku. Također je implementiran sustav za postavljanje jakih lozinki kako bi se spriječilo postavljanje trivijalnih lozinki koje se mogu lako pogađati.

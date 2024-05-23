@@ -1,0 +1,13 @@
+Program se prevodi s naredbom:
+javac Password.java UserBase.java usermgmt.java login.java
+
+Za testiranje funkcionalnosti može se upisati sljedeće naredbe (za naredbe usermgmt add, usermgmt passwd i login je potreban i upis lozinke):
+java usermgmt add sgros
+java login sgros
+java usermgmt passwd sgros
+java usermgmt forcepass sgros
+java login sgros
+java del sgros
+java login sgros
+
+Podaci se spremaju u isti direktorij gdje se nalaze ostale datoteke, u obliku objekta obj.
